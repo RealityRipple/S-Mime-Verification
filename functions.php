@@ -3,6 +3,7 @@
 /**
   * SquirrelMail S/MIME Verification Plugin
   *
+  * Copyleft  (-) 2017 Andrew Sachen <webmaster@realityripple.com>
   * Copyright (c) 2015 Walter Hoehlhubmer <walter.h@mathemainzel.info>
   * Copyright (c) 2005-2012 Paul Lesniewski <paul@squirrelmail.org>
   * Copyright (c) 2005 Khedron Wilk <khedron@wilk.se>
@@ -302,7 +303,7 @@ function mime_fetch_full_body ($imap_stream, $id)
 
    global $uid_support;
   
-   $cmd = "FETCH $id BODY[]";
+   $cmd = "UID FETCH $id BODY.PEEK[]";
    $data = sqimap_run_command($imap_stream, $cmd, true, $response, $message, $uid_support);
    $topline = array_shift($data);
 
@@ -442,7 +443,7 @@ function smime_header_verify_do()
 
    if ($message->header->type0 == 'multipart' and $message->header->type1 == 'signed')
    {
-      $cmd = "FETCH $passed_id BODY.PEEK[HEADER.FIELDS (Content-Type)]";
+      $cmd = "UID FETCH $passed_id BODY.PEEK[HEADER.FIELDS (Content-Type)]";
       $read = sqimap_run_command($imapConnection, $cmd, true, $response, $mess, $uid_support);
 
       if (preg_match('/protocol=(")?application\/(x-)?pkcs7-signature(")?/i', implode('', $read)))

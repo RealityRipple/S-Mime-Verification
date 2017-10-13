@@ -1,8 +1,9 @@
 S/MIME Verification plugin for SquirrelMail
 ===========================================
-Ver 1.0, 2012/01/01
+Ver 1.1, 2017/10/13
 
 
+Copyleft  (-) 2017 Andrew Sachen <webmaster@realityripple.com>
 Copyright (c) 2005-2012 Paul Lesniewski <paul@squirrelmail.org>
 Copyright (c) 2005 Khedron Wilk <khedron@wilk.se>
 Copyright (c) 2004 Scott Heavner
@@ -38,6 +39,7 @@ donating to the authors or inquire about hiring them to
 consult on other projects.  Donation/wish list links for
 the author(s) are as follows:
 
+Andrew Sachen: https://realityripple.com/donate.php?itm=Squirrel+S/MIME
 Paul Lesniewski: https://squirrelmail.org/donate_paul_lesniewski.php
 
 
@@ -144,6 +146,18 @@ Before looking for help elsewhere, please try to help yourself:
 
 Change Log
 ==========
+
+  v1.1  2017/10/13  Andrew Sachen <webmaster@realityripple.com>
+    * Updated ca-bundle.crt
+    * Fetch by UID and peek the body in all cases
+
+  v1.1a 2015/07/02  Walter Hoehlhubmer <walter.h@mathemainzel.info>
+    * Fix potential error messages and close PHP tags on files
+    * Add states for unmodified, unverified unmodified, modified,
+      unverified modified, and invalid signatures
+    * Consolidate OpenSSL commands into a single script
+    * Add complete cert viewer
+    * Add SHA-1 and SHA-256 fingerprints
 
   v1.0  2012/01/01  Paul Lesniewski <paul@squirrelmail.org>
     * Improve email detection in signer certificates
