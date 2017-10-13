@@ -1,0 +1,163 @@
+2003.04.11: vasco@threatconn.com, vasco@all-2-it.com
+
+THIS IS WORKING KNOWLEDGE I'M NOT ANY KIND OF EXPERT IN CRYPTOGRAPHY
+IF THIS DOESN'T WORK FOR YOU, I'LL ASSUME NO RESPONSIBILITY FOR IT
+I MAY TRY TO HELP (if you ask nicely :-) BUT I MAKE NO WARRANTIES.
+
+
+When I installed the S/MIME plug-in I run into some problems, some
+related with the fact that current version of PHP don't have the
+register_globals enable anymore and vars passed by GET don't
+get registered automatically.
+
+
+But other problems were related to my installation of openssl and
+the fact that I have setup my own CA for signing my own certificates,
+And the CA.pl does nothing in order to install them into the certs
+directory.
+
+So, my setup was openssl 0.9.7a build from the sources and installed
+in the default dir of /usr/local/ssl.
+I made a symlink to put the openssl bin on my path
+
+ # ln -s /usr/local/ssl/bin/openssl /usr/bin/openssl
+
+I created my own CA with the /usr/ssl/misc/CA.pl script
+
+ # cd /usr/local/ssl/misc
+ # ./CA.pl -newca
+   [... CA.pl newca dialog...]
+
+and I got my CA certificate in /usr/local/ssl/misc/demoCA/cacert.pem
+but in order for the S/MIME plug-in to work this must be stored in
+the openssl CA directory.
+
+At first I tried just to copy the cacert.pem file into /usr/local/ssl/certs
+but it didn't work, after some Google Digging I find out that there should be
+another filename (a symlink will do) named after the hash value of the
+certificate and pointing to the certificate file.
+
+You get the hash value with the command:
+
+      openssl x509 -hash -in cacert.pem -noout
+
+The file name should be [hash_value].0 (don't ask me about the .0
+maybe it's for version, I don't know).
+
+I choose to rename my cacert.pem file for cosmetic reasons.
+
+ # cp /usr/local/ssl/misc/demoCA/cacert.pem /usr/local/ssl/certs/all2it-cacert.pem
+ # cd /usr/local/ssl/certs
+ # ln -s all2it-cacert.pem `openssl x509 -hash -in all2it-cacert.pem -noout`.0
+
+Having your own CA is good because you can create certificates for your users and sign
+them without having to pay a true CA for it.
+The problem is that you have to setup this 'fake' CA in your browsers and mail clients
+to use certificates signed by this CA.
+
+If all you want is enable SSL in your server site you just have to rename the cacert.pem
+file to somename.crt and ask your users to install it (the default Apache + mod_ssl
+httpd.conf file maps .crt files to application/x-x509-ca-cert mime type, IE and
+Netscape will recognize this and start the dialog to install a new CA).
+
+Making certs for your users to add an S/MIME signature is more difficult.
+I don't know about OUTLOOK ('man pkcs12' says it is used by Netscape, MSIE and Outlook 
+but I didn't tried it) but I did it for Netscape 7.0 mail client.
+
+Remember that if your users sign his messages with a user certificate signed by your
+CA only users with this CA configured in the mail reader will be able to verify the
+signature, so, if your users send messages for others outside your organization make
+sure they add a disclaimer about that.
+
+WARNING: I'm not telling openssl nothing about the encryption or hasing protocols
+         I'm just using the defaults, this may result in less security than you
+         expect.
+
+(1) Create and sign the user certificate
+    ------------------------------------
+
+ # cd /usr/local/ssl/misc
+ # rm -f newreq.pem newcert.pem
+ # ./CA.pl -newreq
+   [...CA.pl newreq dialog...]
+ # ./CA.pl -sign
+   [...CA.pl sign dialog...]
+
+The file newreq.pem will have the certificate request, you'll need this file because it will
+have the user's private key. The signed certificate will be in newcert.pem
+
+(2) Convert the certificate to pkcs12 format
+    ----------------------------------------
+
+Now it will have to be converted to pkcs12 format in order to be imported into Netscape.
+
+ # openssl pkcs12 -export -in newcert.pem -out user.pfx -CApath ./demoCA -inkey newreq.pem
+
+You'll be asked for the passfrase given when creating newreq.pem (this is used to unlock the
+private key) and for a Export Password.
+
+You may want to verify the user.pfx file with
+
+ # openssl pkcs12 -in user.pfx -info
+   [ you'll be asked for the export password ]
+
+(3) Copy the file user.pfx to the user system
+    -----------------------------------------
+
+Take care, this is a binary file, make sure you use a binary file transfer. If you are using
+ftp from the command line issue the command 'bin' before the transfer.
+
+(4) Import the file into Netscape
+    -----------------------------
+
+    *** THIS WILL ONLY WORK IF YOU HAVE ALREADY INSTALLED YOUR CA CERTIFICATE ***
+
+      Edit/Preferences
+        Privacy & Security
+          Certificates
+            Manage Certificates
+              (in 'Your Certificates' Tab)
+              Import
+                (choose user.pfx file)
+                (enter your Netscape master password for the Software Security Device)
+                (enter the export password)
+
+(5) Tell Netscape to sign the mail messages
+    ---------------------------------------
+
+In the Mail window choose
+
+      Edit
+        Mail & Newsgroups Account Settings
+          Security (in the account you'll be using)
+            (set the check box Digitally sign messages (by default))
+            (press the [Select...] button and choose the certificate you just imported)
+
+If just want to sign messages for some destinations, don't check the Digitally sign messages
+(by default) check box, and when composing a new message click in the Security button and
+check the "Digitally Sign this message option".
+
+
+My S/MIME plug-in config (in config.php)
+----------------------------------------
+
+	$openssl = "/usr/bin/openssl";
+	$echo = "/bin/echo";
+	$cadir = "/usr/local/ssl/certs"
+	$cert_in_dir = $data_dir . "certs-in/";
+
+NOTE: certs-in directory must be created by hand, the owner/group should be the ones of
+      the web server (nobody/nobody in my case) and the permissions should be 700.
+
+ # cd [SQUIRREL MAIL DIR]/data
+ # mkdir certs-in
+ # chown nobody:nobody certs-in
+ # chmod 700 certs-in
+
+
+
+-- 
+I hope this is useful
+
+António Vasconcelos
+
