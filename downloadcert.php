@@ -3,6 +3,7 @@
 /**
   * SquirrelMail S/MIME Verification Plugin
   *
+  * Copyright (c) 2015 Walter Hoehlhubmer <walter.h@mathemainzel.info>
   * Copyright (c) 2005-2012 Paul Lesniewski <paul@squirrelmail.org>
   * Copyright (c) 2005 Khedron Wilk <khedron@wilk.se>
   * Copyright (c) 2004 Scott Heavner
@@ -48,6 +49,7 @@ if (!in_array('smime', $plugins))
 
 
 include_once(SM_PATH . 'functions/mime.php');
+include_once(SM_PATH . 'functions/display_messages.php');
 include_once(SM_PATH . 'plugins/smime/functions.php');
 global $color, $download_link, $return_link, $certificate_details;
 smime_init();
@@ -62,19 +64,51 @@ header('Cache-Control: cache');
    
 if (isset($cert))
 {
-   if (function_exists('SendDownloadHeaders'))
-      SendDownloadHeaders('application', 'octet-stream', 'cert.pem', 1);
-   else
-      DumpHeaders('application', 'octet-stream', 'cert.pem', 1);
    if (substr($cert_in_dir, -1) !== '/') $cert_in_dir .= '/';
-   $fd = fopen($cert_in_dir . $cert, 'r');
-   while (!feof($fd))
+
+   if (preg_match("/^[0-9A-Za-z\.]+$/", $cert))
    {
-      $buffer = fgets($fd, 4096);
-      echo $buffer;
+      $certfile = $cert_in_dir . $cert;
+      if (file_exists($certfile))
+      {
+         $lines = array();
+         exec("$openssl_cmds --download-certificate $certfile", $lines, $retval);
+
+         if ($retval==0)
+         {
+            if (function_exists('SendDownloadHeaders'))
+               SendDownloadHeaders('application', 'octet-stream', 'cert.pem', 1);
+            else
+               DumpHeaders('application', 'octet-stream', 'cert.pem', 1);
+
+            $iter = 0;
+            while (isset($lines[$iter]))
+               echo $lines[$iter++] . "\n";
+         }
+         else
+         {
+            global $color;
+            error_box("Certificate file ($cert) not readable.", $color);
+         }
+      }
+      else
+      {
+         global $color;
+         error_box("Certificate file ($cert) not found.", $color);
+      }
    }
-   fclose ($fd);
+   else
+   {
+      global $color;
+      error_box("Invalid certificate filename.", $color);
+   }
 }
+else
+{
+   global $color;
+   error_box("Certificate parameter missing.", $color);
+}
+
 
 
    // This code is a touch old, but that doesn't matter because it is only
@@ -100,41 +134,41 @@ if (isset($cert))
       {
           // Try to show in browser window
           header("Content-Disposition: inline; filename=\"$filename\"");
-	  header("Content-Type: $type0/$type1; name=\"$filename\"");
+          header("Content-Type: $type0/$type1; name=\"$filename\"");
       }
       else
       {
           // Try to pop up the "save as" box
-	  // IE makes this hard.  It pops up 2 save boxes, or none.
-	  // http://support.microsoft.com/support/kb/articles/Q238/5/88.ASP
-	  // But, accordint to Microsoft, it is "RFC compliant but doesn't
-	  // take into account some deviations that allowed within the
-	  // specification."  Doesn't that mean RFC non-compliant?
-	  // http://support.microsoft.com/support/kb/articles/Q258/4/52.ASP
-	  //
-	  // The best thing you can do for IE is to upgrade to the latest
-	  // version
+          // IE makes this hard.  It pops up 2 save boxes, or none.
+          // http://support.microsoft.com/support/kb/articles/Q238/5/88.ASP
+          // But, accordint to Microsoft, it is "RFC compliant but doesn't
+          // take into account some deviations that allowed within the
+          // specification."  Doesn't that mean RFC non-compliant?
+          // http://support.microsoft.com/support/kb/articles/Q258/4/52.ASP
+          //
+          // The best thing you can do for IE is to upgrade to the latest
+          // version
           if ($isIE) {
-	     // http://support.microsoft.com/support/kb/articles/Q182/3/15.asp
-	     // Do not have quotes around filename, but that applied to
-	     // "attachment"... does it apply to inline too?
-	     //
-	     // This combination seems to work mostly.  IE 5.5 SP 1 has
-	     // known issues (see the Microsoft Knowledge Base)
+             // http://support.microsoft.com/support/kb/articles/Q182/3/15.asp
+             // Do not have quotes around filename, but that applied to
+             // "attachment"... does it apply to inline too?
+             //
+             // This combination seems to work mostly.  IE 5.5 SP 1 has
+             // known issues (see the Microsoft Knowledge Base)
              header("Content-Disposition: inline; filename=$filename");
              
-	     // This works for most types, but doesn't work with Word files
+             // This works for most types, but doesn't work with Word files
              header("Content-Type: application/download; name=\"$filename\"");
 
              // These are spares, just in case.  :-)
              //header("Content-Type: $type0/$type1; name=\"$filename\"");
              //header("Content-Type: application/x-msdownload; name=\"$filename\"");
              //header("Content-Type: application/octet-stream; name=\"$filename\"");
-	  } else {
+          } else {
              header("Content-Disposition: attachment; filename=\"$filename\"");
-	     // application/octet-stream forces download for Netscape
+             // application/octet-stream forces download for Netscape
              header("Content-Type: application/octet-stream; name=\"$filename\"");
-	  }
+          }
       }
    }
 

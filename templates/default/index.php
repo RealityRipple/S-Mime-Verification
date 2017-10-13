@@ -11,8 +11,9 @@
  * @license http://opensource.org/licenses/gpl-license.php GNU Public License
  * @version $Id: index.php,v 1.1.2.2 2005/09/11 22:31:38 jervfors Exp $
  * @package squirrelmail
- * @subpackage encode
+ * @subpackage encoding
  */
 
 header('Location: ../index.php');
 
+?>

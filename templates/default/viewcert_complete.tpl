@@ -1,20 +1,19 @@
 <?php
 
 /**
-  * view_certificate.tpl
+  * viewcert_complete.tpl
   *
-  * Template for showing S/MIME certificate details
+  * Template for showing S/MIME certificate details complete
   * for the S/MIME Verification plugin.
   *
   * The following variables are available in this template:
   *
   * string  $return_link          The URI that points back to the source message
   * string  $download_link        The URI that provides download capability
-  * array   $certificate_details  An associative array where keys are
-  *                               certificate details field names and values
-  *                               are the associated details
+  * array   $certificate_complete An array with the complete certificate
+  *                               details
   *
-  * Copyright (c) 2008-2012 Paul Lesniewski <paul@squirrelmail.org>,
+  * Copyright (c) 2015 Walter Hoehlhubmer <walter.h@mathemainzel.info>,
   * Licensed under the GNU GPL. For full terms see the file COPYING.
   *
   * @package plugins
@@ -35,7 +34,7 @@ extract($t);
     <td bgcolor="<?php echo $color[0]; ?>">
       <b><center><?php
 
-   echo _("Viewing S/MIME Certificate") . _(" - ")
+   echo _("Viewing S/MIME Certificate Complete") . _(" - ")
       . '<a href="' . $return_link . '">' . _("View Message") . '</a>';
 
 ?></center></b>
@@ -51,15 +50,14 @@ extract($t);
 </table>
 <br />
 <table width="100%" border=0 cellspacing="0" cellpadding="3">
-<?php foreach ($certificate_details as $title => $value) { ?>
-  <tr>
-    <td valign="top" align="right" width="10%" bgcolor="<?php echo $color[4]; ?>">
-       <?php echo $title; ?>
-    </td>
-    <td valign="top" width="90%" bgcolor="<?php echo $color[4]; ?>">
-       <b><?php echo $value; ?></b>
-    </td>
-  </tr>
+<tr>
+<td valign="top" align="left" width="100%" bgcolor="<?php echo $color[4]; ?>">
+<pre>
+<?php foreach ($certificate_complete as $line) { ?>
+   <?php echo $line . "\n"; ?>
 <?php } ?>
+</pre>
+</td>
+</tr>
 </table>
 

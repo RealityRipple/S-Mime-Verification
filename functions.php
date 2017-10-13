@@ -3,6 +3,7 @@
 /**
   * SquirrelMail S/MIME Verification Plugin
   *
+  * Copyright (c) 2015 Walter Hoehlhubmer <walter.h@mathemainzel.info>
   * Copyright (c) 2005-2012 Paul Lesniewski <paul@squirrelmail.org>
   * Copyright (c) 2005 Khedron Wilk <khedron@wilk.se>
   * Copyright (c) 2004 Scott Heavner
@@ -47,8 +48,9 @@ function smime_init()
 function smime_check_configuration_do()
 {
 
-   global $echo, $openssl, $cert_in_dir;
-
+   global $cert_in_dir;
+   global $openssl_cmds;
+   global $tmp_dir;
 
    // only need to do this pre-1.5.2, as 1.5.2 will make this
    // check for us automatically
@@ -84,7 +86,6 @@ function smime_check_configuration_do()
 
    }
 
-
    // make sure plugin is correctly configured
    //
    if (!smime_init())
@@ -93,26 +94,19 @@ function smime_check_configuration_do()
       return TRUE;
    }
 
-
    // check for openssl
    //
-   $res = exec("$openssl version", $output, $retval);
+   $res = exec("$openssl_cmds --version", $output, $retval);
    if ($retval)
    {
-      do_err('S/MIME Verification plugin had a problem executing the openssl program at ' . $openssl . ': ' . $res, FALSE);
+      do_err('S/MIME Verification plugin had a problem executing the openssl program at ./openssl-cmds.sh: ' . $res, FALSE);
       return TRUE;
    }
-
-
-   // check for echo
-   //
-   $res = exec("$echo 'testing'", $output, $retval);
-   if ($retval)
+   if (preg_match("/^OpenSSL.*1\.0\.[1-9]/", $res) == 0)
    {
-      do_err('S/MIME Verification plugin had a problem executing the echo program at ' . $echo . ': ' . $res, FALSE);
+      do_err('S/MIME Verfication plugin requires a newer release of openssl, actual release: ' . $res . '.', FALSE);
       return TRUE;
    }
-
 
    // check that the cert scratch directory is readable/writable
    //
@@ -123,11 +117,16 @@ function smime_check_configuration_do()
       return TRUE;
    }
 
+   // check that the temporary directory is readable/writeable
+   if (!is_dir($tmp_dir) || !is_readable($tmp_dir) || !is_writable($tmp_dir))
+   {
+      do_err('S/MIME Verification plugin temporary directory ($tmp_dir) is not properly configured (' . $tmp_dir . ')', FALSE);
+      return TRUE;
+   }
 
    return FALSE;
 
 }
-
 
 
 /**
@@ -144,48 +143,39 @@ function smime_check_configuration_do()
 function verify_smime($message_in, $sender_address='')
 {
 
-   global $openssl, $echo, $cadir, $easycerts, $message, $cert_in_dir;
+   global $message, $cert_in_dir;
+   global $openssl_cmds;
+   global $tmp_dir;
+
    if (substr($cert_in_dir, -1) !== '/') $cert_in_dir .= '/';
+   if (substr($tmp_dir, -1) !== '/') $tmp_dir .= '/';
 
    smime_init();
 
-   $subjectmessage = escapeshellarg($message_in);
+   $tmpmsg = tempnam($tmp_dir, 'msg0');
+   $fd = fopen($tmpmsg, "w");
+   if ($fd)
+   {
+      $len = fwrite($fd, $message_in);
+      fclose($fd);
+      chmod($tmpmsg, 0600);
+   }
 
-   $tmpcert = tempnam($cert_in_dir, 'sm-smime-cert-');
+   $tmpcert = tempnam($tmp_dir, 'cert0');
    touch($tmpcert);
    chmod($tmpcert, 0600);
+   
+   $tmpmail = tempnam($tmp_dir, 'mail0');
+   touch($tmpmail);
+   chmod($tmpmail, 0600);
 
+   $cert = '';
 
-   exec("$echo $subjectmessage | $openssl smime -verify -signer $tmpcert -noverify 2>/dev/null", $message_out, $retval);
+   exec("$openssl_cmds --verify-smime-msg $tmpmsg $tmpcert $tmpmail 2>/dev/null", $message_out, $retval);
 
-
-   if ($retval == 0)
+   if (($retval == 0) || ($retval == 4) || ($retval == 6))
    {
-      passthru("$echo $subjectmessage | $openssl smime -verify -CApath $cadir $easycerts 2> /dev/null >/dev/null", $retval);
-      if ($retval == 4) $retval = 6;
-      // OLD: why didn't the original author use the -email option?
-      // $hash = exec("$openssl x509 -in $tmpcert -subject -hash -noout", $lines);
-      $hash = exec("$openssl x509 -in $tmpcert -subject -email -hash -noout", $lines);
-
-
-# [vasco]
-# I had to change this, openssl is outputing /emailAddress instead of /Email
-# have this been changed from 0.9.6 to 0.9.7 ??? or it's just with me because
-# I'm using a private CA ?
-# Maybe it's wiser to do an OR here...
-
-
-###      preg_match("/\/CN=(.*)\/Email=(.*)(\/)?/", $lines[0], $res);
-###      preg_match("/\/CN=(.*)\/emailAddress=(.*)(\/)?/", $lines[0], $res);
-
-# [wouter]
-# This is something of an OR ...
-
-      // OLD: if not using the -email option, we tried to extract the email ourselves:
-      //preg_match("/\/CN=(.*)\/(emailAddress|Email)=(.*)(\/)?/", $lines[0], $res);
-
-      // get name
-      preg_match("/\/CN=(.+?)(\/|$)/", $lines[0], $matches);
+      $hash = exec("$openssl_cmds --cert-subject-email-hash $tmpcert", $lines);
 
       // get email - use sender's address if it's in the certificate,
       // otherwise just take the first one we can find
@@ -196,58 +186,73 @@ function verify_smime($message_in, $sender_address='')
       else
          $email = '';
 
+      // get name
+      preg_match("/\/CN=(.+?)(\/|$)/", $lines[0], $matches);
+
       if (empty($matches[1])) $matches[1] = '';
+
       $name = htmlentities($matches[1] . ' <' . $email . '>');
+
+      $dontcopy = false;
       $longcert = $cert_in_dir . $hash . '.O';
       if (file_exists($longcert))
       {
+      /*
+       * following file compare takes more time, ... 
+       *
+         $equal = false;
          if (filesize($longcert) == filesize($tmpcert))
          {
-            $fa = fopen($longcert, 'r'); $fb = fopen($tmpcert, 'r');
-            while (!feof ($fa))
+            $fd1 = fopen($longcert, 'r');
+            $fd2 = fopen($tmpcert, 'r');
+            do
             {
-               $ba = fgets($fa, 4096);
-               $bb = fgets($fb, 4096);
-               if ($ba != $bb) { $unequal = 1; break; }
+               $buf1 = fgets($fd1, 1024);
+               $buf2 = fgets($fd2, 1024);
+               $equal = ($buf1 == $buf2);
             }
-            fclose($fa); fclose($fb);
+            while ($equal && !feof($fd1)); //  && !feof($fd2))
+            fclose($fd1);
+            fclose($fd2);
+         }
+       *
+       * ... than just comparing md5-hashes ...
+       * (sha1 would be better, but not neccessary)
+       */
+         $md5a = md5_file($longcert);
+         $md5b = md5_file($tmpcert);
+
+         if ($md5a == $md5b) //  if ($equal)
+         {
+            unlink($tmpcert);
+            $dontcopy = true;
          }
          else
-         {
-            $unequal = 1;
-         }
-         if (isset($unequal))
          {
             $longcert = tempnam($cert_in_dir, $hash . '.O');
          }
-         else
-         {
-            $dontmove = 1;
-            unlink($tmpcert);
-         }
       }
-      if (!isset($dontmove))
+      if ($dontcopy == false)
       {
-# [vasco] 2003.04.10
-# if /tmp is in a different filesystem rename will not work
-# is there a better solution ?
-
          copy($tmpcert, $longcert);
          unlink($tmpcert);
-#         rename($tmpcert, $longcert);
       }
+
       $tmpcert = $longcert;
+
+      preg_match("/.*\/(.*)/", $tmpcert, $res);
+      $cert = $res[1];
    }
    else
    {
       unlink($tmpcert);
    }
    $message_out = implode("\r\n", $message_out);
-   preg_match("/.*\/(.*)/", $tmpcert, $res);
-   $cert = $res[1];
+
+   unlink($tmpmsg);
+   unlink($tmpmail);
 
    return array($retval, $message_out, $name, $cert);
-
 }
 
 
@@ -269,7 +274,7 @@ function convert_verify_result_to_displayable_text($retval)
    {
       case 0: $str = _("verified"); break;
       case 1: $str = _("error 1; please send bug report"); break;
-      case 2: $str = _("error 2; please send bug report"); break;
+      case 2: $str = _("message signature invalid"); break;
       case 3: $str = _("message format error"); break;
       case 4: $str = _("message has been altered"); break;
       case 5: $str = _("message has not been altered, but could not verify due to wrong system setup"); break;
@@ -325,10 +330,6 @@ function mime_fetch_full_body ($imap_stream, $id)
    }
 
    return $str;
-
-   $str = 'Body retrival error. Please report this bug!' . "\n\n" . 'Top line is' . "\"$topline\"\n";
-   return $str;
-
 }
 
 
@@ -367,7 +368,6 @@ function signed_parts($body)
             case 'Body':        $parts[key($parts)] = _("Body"); break;
             case 'Attachments': $parts[key($parts)] = _("Attachments"); break;
          }
-// FIXME: huh?  why do we need the next line?
          next($parts);
       }
       $ret = implode(_(", "), $parts);
@@ -391,14 +391,11 @@ function signed_parts($body)
 function smime_header_verify_do()
 {
 
-   global $imapConnection, $passed_ent_id, $passed_id, $color, $message,
+   global $imapConnection, $passed_id, $color, $message,
           $mailbox, $where, $what, $startMessage, $uid_support,
           $row_highlite_color;
 
    smime_working_directory_init();
-
-//      $passed_id = $passed_ent_id;
-
 
    // grab the sender address
    // (AddressStructure class stupidly has no way to get just the email address)
@@ -410,13 +407,13 @@ function smime_header_verify_do()
                       : $message->rfc822_header->from[0]->mailbox);
 
 
-   if ($message->header->type0 == 'application' and $message->header->type1 == 'pkcs7-mime')
+   if ($message->header->type0 == 'application' &&
+       strpos($message->header->type1, 'pkcs7-mime') !== FALSE)
    {
 
       sq_change_text_domain('smime');
 
       // Output for SM 1.5.2+
-      //
       if (check_sm_version(1, 5, 2))
       {
          global $oTemplate;
@@ -424,21 +421,10 @@ function smime_header_verify_do()
          $output = $oTemplate->fetch('plugins/smime/encrypted.tpl');
          return array('read_body_header' => $output);
       }
-
-
-      // Output for SM 1.4.x
       else
+      //
+      // Output for SM 1.4.x
       {
-
-/* ---------------------
-   This had been used to place a kind of "section"
-   that made the signed information more prominent
-         echo "      <tr>\n"
-            . "         <th bgcolor=\"$color[9]\" align=\"left\" valign=\"top\" colspan=\"3\">\n"
-            . '           ' . _("This message has been S/MIME encrypted") . "\n"
-            . "         </th>\n"
-            . "      </tr>\n";
-------------------------- */
 
          echo "      <tr bgcolor=\"" . $row_highlite_color . "\">\n"
             . "        <td width=\"20%\" align=\"right\" valign=\"top\">\n<b>"
@@ -462,7 +448,7 @@ function smime_header_verify_do()
       if (preg_match('/protocol=(")?application\/(x-)?pkcs7-signature(")?/i', implode('', $read)))
       {
 
-         // we have a detatched s/mime message
+         // we have a detached s/mime message
          //
          // we remove the MIME signature entity from the message here
          // so that SquirrelMail does not try to present it to the user
@@ -488,34 +474,14 @@ function smime_header_verify_do()
             unset($message->entities[$entity_index_to_unset]);
 
 
-// Not sure why this was needed, but it was not doing anything
-// immediately useful beside b0rking the attachment.  W/out this
-// it correctly hides the s/mime sig attachment, at least in limited
-// testing w/out any other attachments
-// 
-// It was probably related to problems with the array_pop above,
-// which (see notes above) has been fixed in a better way
-/*
-         if (!isset($message->entities[1]))
-         {
-            $message->header->type0     = $message->entities[0]->header->type0;
-            $message->header->type1     = $message->entities[0]->header->type1;
-            $message->header->charset   = $message->entities[0]->header->parameters->charset;
-            $message->header->encoding  = $message->entities[0]->header->encoding;
-            $message->header->size      = $message->entities[0]->header->size;
-            $message->header->filename  = $message->entities[0]->header->disposition->properties->filename;
-            $message->header->entity_id = $message->entities[0]->header->entity_id;
-            $message->entities          = $message->entities[0]->entities;
-         }
-*/
-
          $body = mime_fetch_full_body ($imapConnection, $passed_id);
          list ($retval, $lines, $name, $cert) = verify_smime($body, $sender_address);
+
+         if ($retval == 2) $name = 'Unknown';
+
          $verify_status = convert_verify_result_to_displayable_text($retval);
 
-
          $signed_parts = signed_parts($lines);
-
 
          sq_change_text_domain('smime');
 
@@ -529,19 +495,26 @@ function smime_header_verify_do()
             $view_link = sqm_baseuri() . 'plugins/smime/viewcert.php?mailbox=' . urlencode($mailbox) . "&passed_id=$passed_id&startMessage=$startMessage&show_more=0&cert=" . $cert;
 
 
-         if (check_sm_version(1, 5, 2))
+         $tworows = ($retval == 0 || $retval == 6);
+
+         if ($tworows || $retval == 4)
          {
-            $view_tag = create_hyperlink($view_link, _("View Certificate"));
-            $download_tag = create_hyperlink($download_link, _("Download Certificate"));
+            if (check_sm_version(1, 5, 2))
+            {
+               $view_tag = create_hyperlink($view_link, _("View Certificate"));
+               $download_tag = create_hyperlink($download_link, _("Download Certificate"));
+            }
+            else
+            {
+               $view_tag = '<a href="' . $view_link . '">' . _("View Certificate") . '</a>';
+               $download_tag = '<a href="' . $download_link . '">' . _("Download Certificate") . '</a>';
+            }
          }
          else
          {
-            $view_tag = '<a href="' . $view_link . '">' . _("View Certificate") . '</a>';
-            $download_tag = '<a href="' . $download_link . '">' . _("Download Certificate") . '</a>';
+            $view_tag = '';
+            $downloadtag = '';
          }
-
-
-         $tworows = ($retval == 0 || $retval == 6);
 
 
          if ($retval == 0)
@@ -552,7 +525,6 @@ function smime_header_verify_do()
 
 
          // Output for SM 1.5.2+
-         //
          if (check_sm_version(1, 5, 2))
          {
             global $oTemplate;
@@ -568,22 +540,10 @@ function smime_header_verify_do()
             $output = $oTemplate->fetch('plugins/smime/signed.tpl');
             return array('read_body_header' => $output);
          }
-
-
-         // Output for SM 1.4.x
          else
+         //
+         // Output for SM 1.4.x
          {
-
-/* ---------------------
-   This had been used to place a kind of "section"
-   that made the signed information more prominent
-            echo "      <tr>\n"
-               . "         <th bgcolor=\"$color[9]\" align=\"left\" valign=\"top\" colspan=\"3\">\n"
-               . "           " . _("This message has been S/MIME signed") . "\n"
-               . "         </th>\n"
-               . "      </tr>\n";
-------------------------- */
-
 
             $colortag1 = '';
             $colortag2 = '';
@@ -652,23 +612,29 @@ function smime_header_verify_do()
   * Try to make sure the certificates scratch directory is usable
   *
   */
+/**
+  * Try to make sure the messages scratch directory is usable
+  * 
+  */
 function smime_working_directory_init()
 {
 
    global $cert_in_dir;
+   global $tmp_dir;
 
    smime_init();
 
-   $oldmask = umask (077);
+   $oldmask = umask(077);
 
    if (!is_dir($cert_in_dir))
    {
       mkdir($cert_in_dir, 01700);
    }
 
+   if (!is_dir($tmp_dir))
+   {
+      mkdir($tmp_dir, 01700);
+   }
+
    umask($oldmask);
-
 }
-
-
-

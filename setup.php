@@ -3,6 +3,7 @@
 /**
   * SquirrelMail S/MIME Verification Plugin
   *
+  * Copyright (c) 2015 Walter Hoehlhubmer <walter.h@mathemainzel.info>
   * Copyright (c) 2005-2012 Paul Lesniewski <paul@squirrelmail.org>
   * Copyright (c) 2005 Khedron Wilk <khedron@wilk.se>
   * Copyright (c) 2004 Scott Heavner
@@ -100,8 +101,11 @@ function smime_info()
                        'email' => 'paul@squirrelmail.org',
                        'sm_site_username' => 'pdontthink',
                     ),
+                    'Walter Hoehlhubmer' => array(
+                       'email' => 'walter.h@mathemainzel.info',
+                    ),
                  ),
-                 'version' => '1.0',
+                 'version' => '1.1a',
                  'required_sm_version' => '1.1.1',
                  'requires_configuration' => 0,
                  'summary' => 'Verifies S/MIME signed messages.',
