@@ -97,16 +97,17 @@ case $1 in
     ;;
 
   --verify-smime-msg)
-    if [ "$2" -a "$3" -a "$4" ]; then
+    if [ "$2" -a "$3" -a "$4" -a "$5" ]; then
       tmpcert=$3
       tmpmsg=$2
       tmpmail=$4
+      tmptime=$5
 
-      $openssl smime -verify $opensslca -in $tmpmsg 2>/dev/null >/dev/null
+      $openssl smime -verify $opensslca -in $tmpmsg -attime $tmptime 2>/dev/null >/dev/null
       retval=$?
 
       if [ $retval -eq 0 ]; then
-        $openssl smime -verify -in $tmpmsg -signer $tmpcert -out $tmpmail 2>/dev/null
+        $openssl smime -verify -in $tmpmsg -signer $tmpcert -out $tmpmail -attime $tmptime 2>/dev/null
         retval=$?
       else
         if [ $retval -eq 4 ]; then

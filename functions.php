@@ -135,13 +135,14 @@ function smime_check_configuration_do()
   *
   * @param string The full message being verified
   * @param string The sender/from address for the message if available
+  * @param string The time the message was sent if available
   *
   * @return array A list of the OpenSSL verification result value,
   *               the full command output, the name of the sender,
   *               and the certificate
   *
   */
-function verify_smime($message_in, $sender_address='')
+function verify_smime($message_in, $sender_address='', $send_time=0)
 {
 
    global $message, $cert_in_dir;
@@ -172,7 +173,10 @@ function verify_smime($message_in, $sender_address='')
 
    $cert = '';
 
-   exec("$openssl_cmds --verify-smime-msg $tmpmsg $tmpcert $tmpmail 2>/dev/null", $message_out, $retval);
+   if ($send_time == 0)
+    $send_time = time();
+
+   exec("$openssl_cmds --verify-smime-msg $tmpmsg $tmpcert $tmpmail $send_time 2>/dev/null", $message_out, $retval);
 
    if (($retval == 0) || ($retval == 4) || ($retval == 6))
    {
@@ -407,6 +411,10 @@ function smime_header_verify_do()
                         . '@' . $message->rfc822_header->from[0]->host
                       : $message->rfc822_header->from[0]->mailbox);
 
+   // grab the time the message was sent
+   $send_time = time();
+   if (!empty($message->rfc822_header->date))
+    $send_time = $message->rfc822_header->date;
 
    if ($message->header->type0 == 'application' &&
        strpos($message->header->type1, 'pkcs7-mime') !== FALSE)
@@ -476,7 +484,7 @@ function smime_header_verify_do()
 
 
          $body = mime_fetch_full_body ($imapConnection, $passed_id);
-         list ($retval, $lines, $name, $cert) = verify_smime($body, $sender_address);
+         list ($retval, $lines, $name, $cert) = verify_smime($body, $sender_address, $send_time);
 
          if ($retval == 2) $name = 'Unknown';
 
