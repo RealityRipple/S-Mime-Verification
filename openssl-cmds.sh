@@ -2,6 +2,7 @@
 
 # SquirrelMail S/MIME Verification Plugin
 #
+# Copyleft  (-) 2017-2018 Andrew Sachen <webmaster@realityripple.com>
 # Copyright (c) 2015 Walter Hoehlhubmer <walter.h@mathemainzel.info>
 #
 # Licensed under the GNU GPL. For full terms see the file COPYING.
@@ -103,7 +104,7 @@ case $1 in
       tmpmail=$4
       tmptime=$5
 
-      $openssl smime -verify $opensslca -in $tmpmsg -attime $tmptime 2>/dev/null >/dev/null
+      $openssl smime -verify $opensslca -in $tmpmsg -attime $tmptime 2>&1
       retval=$?
 
       if [ $retval -eq 0 ]; then

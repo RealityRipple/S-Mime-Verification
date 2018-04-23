@@ -1,9 +1,9 @@
 S/MIME Verification plugin for SquirrelMail
 ===========================================
-Ver 1.1, 2017/10/13
+Ver 1.2, 2018/04/23
 
 
-Copyleft  (-) 2017 Andrew Sachen <webmaster@realityripple.com>
+Copyleft  (-) 2017-2018 Andrew Sachen <webmaster@realityripple.com>
 Copyright (c) 2005-2012 Paul Lesniewski <paul@squirrelmail.org>
 Copyright (c) 2005 Khedron Wilk <khedron@wilk.se>
 Copyright (c) 2004 Scott Heavner
@@ -146,6 +146,13 @@ Before looking for help elsewhere, please try to help yourself:
 
 Change Log
 ==========
+
+  v1.2  2018/04/23  Andrew Sachen <webmaster@realityripple.com>
+    * Updated ca-bundle.crt
+    * Standardized UID fetch, removing uid_support variable
+    * Improve message body fetch failure response
+    * Take send date into account
+    * Display verify failure warnings
 
   v1.1  2017/10/13  Andrew Sachen <webmaster@realityripple.com>
     * Updated ca-bundle.crt

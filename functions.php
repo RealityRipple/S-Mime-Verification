@@ -305,10 +305,8 @@ function convert_verify_result_to_displayable_text($retval)
 function mime_fetch_full_body ($imap_stream, $id)
 {
 
-   global $uid_support;
-  
-   $cmd = "UID FETCH $id BODY.PEEK[]";
-   $data = sqimap_run_command($imap_stream, $cmd, true, $response, $message, $uid_support);
+   $cmd = "FETCH $id BODY.PEEK[]";
+   $data = sqimap_run_command($imap_stream, $cmd, true, $response, $message, true);
    $topline = array_shift($data);
 
    while (! preg_match('/\\* [0-9]+ FETCH /', $topline) && $data)
@@ -323,18 +321,9 @@ function mime_fetch_full_body ($imap_stream, $id)
    {
       return $regs[1];
    }
-
-   $str = 'Body retrival error. Please report this bug!' . "\n";
-   $str .= 'Response:' . $response . "\n";
-   $str .= 'Message:' . $message . "\n";
-   $str .= 'FETCH line:' . $topline;
-   $str .= "---------------\n$wholemessage";
-   foreach ($data as $d)
-   {
-      $str .= htmlspecialchars($d) . "\n";
-   }
-
-   return $str;
+   if (!empty($response) && $response !== 'OK')
+    return "Error fetching message BODY: $response ($message)";
+   return "Failed to fetch message BODY";
 }
 
 
@@ -364,6 +353,8 @@ function signed_parts($body)
          $red = "Body: \r\n" . $regs[1];
       }
       $red = preg_replace("/^Content-.*$/mi", '', $red);
+      preg_match_all("/^\d+:error:\d+:PKCS7 routines:PKCS7_(.*):pk7_.*$/mi", $red, $errs);
+      $red = preg_replace("/^\d+:error:\d+:.*$/mi", '', $red);
       preg_match_all("/^(.*):/mU", $red, $matches);
       $parts = $matches[1];
       foreach($parts as $partname)
@@ -376,6 +367,21 @@ function signed_parts($body)
          next($parts);
       }
       $ret = implode(_(", "), $parts);
+      if (count($errs[1]) > 0)
+      {
+       $ret.= ' (Warning: ';
+       $sErrs = array();
+       foreach ($errs[1] as $err)
+       {
+        if ($err === 'signatureVerify:digest failure')
+         $sErrs[] = 'Signature Digest Failure';
+        else if ($err === 'verify:signature failure')
+         $sErrs[] = 'Invalid Signature';
+        else
+         $sErrs[] = $err;
+       }
+       $ret.= implode(', ', $sErrs).')';
+      }
    }
    else
    {
@@ -397,7 +403,7 @@ function smime_header_verify_do()
 {
 
    global $imapConnection, $passed_id, $color, $message,
-          $mailbox, $where, $what, $startMessage, $uid_support,
+          $mailbox, $where, $what, $startMessage,
           $row_highlite_color;
 
    smime_working_directory_init();
@@ -451,8 +457,8 @@ function smime_header_verify_do()
 
    if ($message->header->type0 == 'multipart' and $message->header->type1 == 'signed')
    {
-      $cmd = "UID FETCH $passed_id BODY.PEEK[HEADER.FIELDS (Content-Type)]";
-      $read = sqimap_run_command($imapConnection, $cmd, true, $response, $mess, $uid_support);
+      $cmd = "FETCH $passed_id BODY.PEEK[HEADER.FIELDS (Content-Type)]";
+      $read = sqimap_run_command($imapConnection, $cmd, true, $response, $mess, true);
 
       if (preg_match('/protocol=(")?application\/(x-)?pkcs7-signature(")?/i', implode('', $read)))
       {
@@ -484,14 +490,24 @@ function smime_header_verify_do()
 
 
          $body = mime_fetch_full_body ($imapConnection, $passed_id);
-         list ($retval, $lines, $name, $cert) = verify_smime($body, $sender_address, $send_time);
-
-         if ($retval == 2) $name = 'Unknown';
-
-         $verify_status = convert_verify_result_to_displayable_text($retval);
-
-         $signed_parts = signed_parts($lines);
-
+         if (strpos($body, "\n") === false)
+         {
+          $name = "Error Reading Message";
+          $verify_status = $body;
+          $retval = 2;
+         }
+         else
+         {
+          list ($retval, $lines, $name, $cert) = verify_smime($body, $sender_address, $send_time);
+          if ($retval == 2)
+          {          
+           $name = explode("\n", $lines, 2)[0];
+           $verify_status = explode("\n", $lines, 2)[1];
+          }
+          else
+           $verify_status = convert_verify_result_to_displayable_text($retval);
+          $signed_parts = signed_parts($lines);
+         }
          sq_change_text_domain('smime');
 
 
