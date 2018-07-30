@@ -32,8 +32,8 @@ openssl="/usr/bin/openssl"
 # For other distributions or BSD-Unix see in the operating system manual or
 # man pages about the certificate store.
 #
-opensslca="-CApath /etc/ssl/certs"
-#opensslca="-CAfile /usr/share/squirrelmail/plugins/smime/data/ca-bundle.crt"
+#opensslca="-CApath /etc/ssl/certs"
+opensslca="-CAfile /kunden/homepages/1/d115845883/htdocs/rrs/mail/plugins/smime/data/ca-bundle.crt"
 
 if [ -x $openssl ]; then
 if [ "$1" ]; then
