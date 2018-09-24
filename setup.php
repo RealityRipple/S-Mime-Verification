@@ -3,7 +3,7 @@
 /**
   * SquirrelMail S/MIME Verification Plugin
   *
-  * Copyleft  (-) 2017 Andrew Sachen <webmaster@realityripple.com>
+  * Copyleft  (-) 2017-2018 Andrew Sachen <webmaster@realityripple.com>
   * Copyright (c) 2015 Walter Hoehlhubmer <walter.h@mathemainzel.info>
   * Copyright (c) 2005-2012 Paul Lesniewski <paul@squirrelmail.org>
   * Copyright (c) 2005 Khedron Wilk <khedron@wilk.se>
@@ -105,8 +105,11 @@ function smime_info()
                     'Walter Hoehlhubmer' => array(
                        'email' => 'walter.h@mathemainzel.info',
                     ),
+                    'Andrew Sachen' => array(
+                       'email' => 'webmaster@realityripple.com',
+                    ),
                  ),
-                 'version' => '1.1',
+                 'version' => '1.2',
                  'required_sm_version' => '1.1.1',
                  'requires_configuration' => 0,
                  'summary' => 'Verifies S/MIME signed messages.',
