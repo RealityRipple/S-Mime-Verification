@@ -2,6 +2,7 @@
 
 /**
   * SquirrelMail S/MIME Verification Plugin
+  * Copyleft  (-) 2018 Andrew Sachen <webmaster@realityripple.com>
   * Copyright (c) 2015 Walter Hoehlhubmer <walter.h@mathemainzel.info>
   * Copyright (c) 2001-2003 Wouter Teepe <wouter@teepe.com>,
   * Copyright (c) 2003 Antonio Vasconcelos <vasco@threatconn.com>,
