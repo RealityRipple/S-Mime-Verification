@@ -76,7 +76,10 @@ $download_link = sqm_baseuri() . 'plugins/smime/downloadcert.php?cert=' . $cert;
 
 // calculate complete view link
 //
-$completeview_link = sqm_baseuri() . 'plugins/smime/viewcert_complete.php?mailbox=' . urlencode($mailbox) . "&passed_id=$passed_id&where=" . urlencode($where) . "&what=" . urlencode($what) . "&cert=" . $cert;
+if (isset($where) && isset($what))
+   $completeview_link = sqm_baseuri() . 'plugins/smime/viewcert_complete.php?mailbox=' . urlencode($mailbox) . "&passed_id=$passed_id&where=" . urlencode($where) . "&what=" . urlencode($what) . "&cert=" . $cert;
+else   
+   $completeview_link = sqm_baseuri() . 'plugins/smime/viewcert_complete.php?mailbox=' . urlencode($mailbox) . "&passed_id=$passed_id&startMessage=$startMessage&show_more=0&cert=" . $cert;
 
 
 
