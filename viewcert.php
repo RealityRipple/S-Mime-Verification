@@ -114,7 +114,7 @@ if (check_sm_version(1, 5, 2))
    $oTemplate->assign('color', $color);
    $oTemplate->assign('return_link', $return_link);
    $oTemplate->assign('download_link', $download_link);
-   $oTemplate->assign('detailedview_link', $detailedview_link);
+   $oTemplate->assign('completeview_link', $completeview_link);
    $oTemplate->assign('certificate_details', $certificate_details, FALSE);
    $oTemplate->display('plugins/smime/viewcert.tpl');
    $oTemplate->display('footer.tpl');
