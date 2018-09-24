@@ -76,7 +76,10 @@ $download_link = sqm_baseuri() . 'plugins/smime/downloadcert.php?cert=' . $cert;
 
 // calculate complete view link
 //
-$completeview_link = sqm_baseuri() . 'plugins/smime/viewcert_complete.php?mailbox=' . urlencode($mailbox) . "&passed_id=$passed_id&where=" . urlencode($where) . "&what=" . urlencode($what) . "&cert=" . $cert;
+if (isset($where) && isset($what))
+   $completeview_link = sqm_baseuri() . 'plugins/smime/viewcert_complete.php?mailbox=' . urlencode($mailbox) . "&passed_id=$passed_id&where=" . urlencode($where) . "&what=" . urlencode($what) . "&cert=" . $cert;
+else   
+   $completeview_link = sqm_baseuri() . 'plugins/smime/viewcert_complete.php?mailbox=' . urlencode($mailbox) . "&passed_id=$passed_id&startMessage=$startMessage&show_more=0&cert=" . $cert;
 
 
 
@@ -114,7 +117,7 @@ if (check_sm_version(1, 5, 2))
    $oTemplate->assign('color', $color);
    $oTemplate->assign('return_link', $return_link);
    $oTemplate->assign('download_link', $download_link);
-   $oTemplate->assign('detailedview_link', $detailedview_link);
+   $oTemplate->assign('completeview_link', $completeview_link);
    $oTemplate->assign('certificate_details', $certificate_details, FALSE);
    $oTemplate->display('plugins/smime/viewcert.tpl');
    $oTemplate->display('footer.tpl');
