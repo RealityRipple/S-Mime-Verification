@@ -2,7 +2,7 @@
 
 # SquirrelMail S/MIME Verification Plugin
 #
-# Copyleft  (-) 2017-2018 Andrew Sachen <webmaster@realityripple.com>
+# Copyleft  (-) 2017-2019 Andrew Sachen <webmaster@realityripple.com>
 # Copyright (c) 2015 Walter Hoehlhubmer <walter.h@mathemainzel.info>
 #
 # Licensed under the GNU GPL. For full terms see the file COPYING.
