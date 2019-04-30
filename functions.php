@@ -196,6 +196,8 @@ function verify_smime($message_in, $sender_address='', $send_time=0)
 
       if (empty($matches[1])) $matches[1] = '';
 
+      if (strtolower($matches[1]) === strtolower($email)) $matches[1] = '';
+
       $name = htmlentities($matches[1] . ' <' . $email . '>');
 
       $dontcopy = false;
