@@ -103,7 +103,7 @@ function smime_check_configuration_do()
       do_err('S/MIME Verification plugin had a problem executing the openssl program at ./openssl-cmds.sh: ' . $res, FALSE);
       return TRUE;
    }
-   if (preg_match("/^OpenSSL.*1\.0\.[1-9]/", $res) == 0)
+   if (preg_match("/^OpenSSL.*1\.0\.[1-9]/", $res) == 0 && preg_match("/^OpenSSL.*1\.[1-9]\.[0-9]/", $res) == 0)
    {
       do_err('S/MIME Verfication plugin requires a newer release of openssl, actual release: ' . $res . '.', FALSE);
       return TRUE;
